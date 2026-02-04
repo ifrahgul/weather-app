@@ -53,4 +53,11 @@ Responsive design
  ## Live Demo
 https://weather-app-qqffsuxffvtt3ga4schavc.streamlit.app/
 
+## Installation
+Prerequisites
+Python 3.8 or higher
+Git
+OpenWeatherMap API key (free tier available)
+
+
 
