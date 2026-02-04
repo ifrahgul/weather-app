@@ -50,3 +50,7 @@ Dark/Light theme options
 Data export (JSON format)
 
 Responsive design
+ ## Live Demo
+https://weather-app-qqffsuxffvtt3ga4schavc.streamlit.app/
+
+
