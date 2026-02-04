@@ -19,12 +19,12 @@ ui = UIManager()
 theme_manager = ThemeManager()
 map_manager = MapManager()
 
-# Page config
+# Page config - Sidebar کو expanded رکھنے کے لیے
 st.set_page_config(
     page_title=Config.APP_NAME,
     page_icon="🌤️",
     layout="wide",
-    initial_sidebar_state="expanded",  # Sidebar expanded by default
+    initial_sidebar_state="expanded",  # یہ ابتدائی حالت ہے
     menu_items={
         'About': f"""
         # {Config.APP_NAME} v{Config.APP_VERSION}
@@ -47,7 +47,7 @@ st.set_page_config(
 # Apply theme
 st.markdown(theme_manager.get_css(), unsafe_allow_html=True)
 
-# Initialize session state
+# Initialize session state - sidebar کی حالت کو بھی محفوظ کریں
 def init_session_state():
     """Initialize all session state variables"""
     if 'initialized' not in st.session_state:
@@ -69,7 +69,9 @@ def init_session_state():
         st.session_state.show_charts = True
         st.session_state.show_maps = True
         st.session_state.use_current_location = False
+        # Sidebar کی حالت کو محفوظ کریں
         st.session_state.sidebar_open = True
+        st.session_state.sidebar_visibility = "visible"
 
 init_session_state()
 
@@ -96,6 +98,10 @@ def update_location(search_query):
                 st.session_state.search_history.append(search_query)
                 if len(st.session_state.search_history) > 10:
                     st.session_state.search_history.pop(0)
+            
+            # Sidebar کو ظاہر رکھیں
+            st.session_state.sidebar_open = True
+            st.session_state.sidebar_visibility = "visible"
             
             st.rerun()
             
@@ -144,130 +150,165 @@ def fetch_weather_data():
 def display_sidebar():
     """Display sidebar with settings and features"""
     with st.sidebar:
-        st.markdown(f"""
-        <div style="text-align: center; padding: 20px 0;">
-            <h3 style="color: {Config.COLORS['primary']}; margin: 0;">⚙️ Settings</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown('<div class="weather-card">', unsafe_allow_html=True)
-        
-        # Temperature Unit
-        unit_options = ["Celsius (°C)", "Fahrenheit (°F)"]
-        selected_unit = st.selectbox(
-            "Temperature Unit",
-            unit_options,
-            index=0 if st.session_state.unit == "metric" else 1
-        )
-        
-        # Theme
-        theme_options = ["Auto", "Light", "Dark", "High Contrast"]
-        selected_theme = st.selectbox(
-            "Theme",
-            theme_options,
-            index=theme_options.index(st.session_state.theme)
-        )
-        
-        # Features Toggles
-        st.markdown("### 🔧 Features")
-        show_charts = st.toggle("Show Charts", value=st.session_state.show_charts)
-        show_maps = st.toggle("Show Maps", value=st.session_state.show_maps)
-        enable_alerts = st.toggle("Weather Alerts", value=True)
-        
-        # Save Settings Button
-        if st.button("💾 Save Settings", use_container_width=True, type="primary"):
-            st.session_state.unit = "metric" if selected_unit == "Celsius (°C)" else "imperial"
-            st.session_state.theme = selected_theme
-            st.session_state.show_charts = show_charts
-            st.session_state.show_maps = show_maps
-            st.session_state.weather_data = None  # Clear cache to reload with new settings
-            st.success("✅ Settings saved!")
-            st.rerun()
-        
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Recent Searches
-        if st.session_state.search_history:
-            st.markdown('<div class="weather-card">', unsafe_allow_html=True)
-            st.markdown("### 🔍 Recent Searches")
-            for loc in reversed(st.session_state.search_history[-5:]):
-                if st.button(f"📍 {loc}", key=f"sidebar_history_{loc}", use_container_width=True):
-                    update_location(loc)
-            st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Favorites
-        st.markdown('<div class="weather-card">', unsafe_allow_html=True)
-        st.markdown("### ⭐ Favorites")
-        
-        if st.session_state.favorites:
-            for fav in st.session_state.favorites:
-                col1, col2 = st.columns([3, 1])
-                with col1:
-                    if st.button(f"📍 {fav}", key=f"fav_{fav}", use_container_width=True):
-                        update_location(fav)
-                with col2:
-                    if st.button("🗑️", key=f"remove_{fav}"):
-                        st.session_state.favorites.remove(fav)
-                        st.success(f"Removed {fav}")
-                        st.rerun()
-        else:
-            st.info("No favorites yet")
-            
-        if st.button("➕ Add Current to Favorites", use_container_width=True):
-            if st.session_state.address not in st.session_state.favorites:
-                st.session_state.favorites.append(st.session_state.address)
-                st.success(f"Added {st.session_state.address} to favorites!")
+        # Sidebar ٹوگل بٹن
+        col1, col2 = st.columns([4, 1])
+        with col1:
+            st.markdown(f"""
+            <div style="text-align: center; padding: 10px 0 20px 0;">
+                <h3 style="color: {Config.COLORS['primary']}; margin: 0;">⚙️ Settings</h3>
+            </div>
+            """, unsafe_allow_html=True)
+        with col2:
+            if st.button("✕", key="close_sidebar", help="Close sidebar"):
+                # Sidebar کو چھپانے کے بجائے، sidebar_content کو خالی کر دیں
+                st.session_state.sidebar_visibility = "collapsed"
                 st.rerun()
         
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # Export Data
-        st.markdown('<div class="weather-card">', unsafe_allow_html=True)
-        st.markdown("### 📥 Export Data")
-        
-        if st.button("Export Weather Data", use_container_width=True):
-            if st.session_state.weather_data:
-                data = {
-                    "location": st.session_state.address,
-                    "coordinates": {
-                        "lat": st.session_state.lat,
-                        "lon": st.session_state.lon
-                    },
-                    "current_weather": st.session_state.weather_data,
-                    "forecast": st.session_state.forecast_data,
-                    "air_quality": st.session_state.air_quality_data,
-                    "timestamp": datetime.now().isoformat(),
-                    "unit": st.session_state.unit
-                }
-                
-                json_str = json.dumps(data, indent=2)
-                st.download_button(
-                    label="📄 Download JSON",
-                    data=json_str,
-                    file_name=f"weather_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
-                    mime="application/json",
-                    use_container_width=True
-                )
+        if st.session_state.sidebar_visibility == "visible":
+            st.markdown('<div class="weather-card">', unsafe_allow_html=True)
+            
+            # Temperature Unit
+            unit_options = ["Celsius (°C)", "Fahrenheit (°F)"]
+            selected_unit = st.selectbox(
+                "Temperature Unit",
+                unit_options,
+                index=0 if st.session_state.unit == "metric" else 1
+            )
+            
+            # Theme
+            theme_options = ["Auto", "Light", "Dark", "High Contrast"]
+            selected_theme = st.selectbox(
+                "Theme",
+                theme_options,
+                index=theme_options.index(st.session_state.theme)
+            )
+            
+            # Features Toggles
+            st.markdown("### 🔧 Features")
+            show_charts = st.toggle("Show Charts", value=st.session_state.show_charts)
+            show_maps = st.toggle("Show Maps", value=st.session_state.show_maps)
+            enable_alerts = st.toggle("Weather Alerts", value=True)
+            
+            # Save Settings Button
+            if st.button("💾 Save Settings", use_container_width=True, type="primary"):
+                st.session_state.unit = "metric" if selected_unit == "Celsius (°C)" else "imperial"
+                st.session_state.theme = selected_theme
+                st.session_state.show_charts = show_charts
+                st.session_state.show_maps = show_maps
+                st.session_state.weather_data = None  # Clear cache to reload with new settings
+                st.success("✅ Settings saved!")
+                st.rerun()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Recent Searches
+            if st.session_state.search_history:
+                st.markdown('<div class="weather-card">', unsafe_allow_html=True)
+                st.markdown("### 🔍 Recent Searches")
+                for loc in reversed(st.session_state.search_history[-5:]):
+                    if st.button(f"📍 {loc}", key=f"sidebar_history_{loc}", use_container_width=True):
+                        update_location(loc)
+                st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Favorites
+            st.markdown('<div class="weather-card">', unsafe_allow_html=True)
+            st.markdown("### ⭐ Favorites")
+            
+            if st.session_state.favorites:
+                for fav in st.session_state.favorites:
+                    col1, col2 = st.columns([3, 1])
+                    with col1:
+                        if st.button(f"📍 {fav}", key=f"fav_{fav}", use_container_width=True):
+                            update_location(fav)
+                    with col2:
+                        if st.button("🗑️", key=f"remove_{fav}"):
+                            st.session_state.favorites.remove(fav)
+                            st.success(f"Removed {fav}")
+                            st.rerun()
             else:
-                st.warning("No weather data to export")
+                st.info("No favorites yet")
+                
+            if st.button("➕ Add Current to Favorites", use_container_width=True):
+                if st.session_state.address not in st.session_state.favorites:
+                    st.session_state.favorites.append(st.session_state.address)
+                    st.success(f"Added {st.session_state.address} to favorites!")
+                    st.rerun()
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # Export Data
+            st.markdown('<div class="weather-card">', unsafe_allow_html=True)
+            st.markdown("### 📥 Export Data")
+            
+            if st.button("Export Weather Data", use_container_width=True):
+                if st.session_state.weather_data:
+                    data = {
+                        "location": st.session_state.address,
+                        "coordinates": {
+                            "lat": st.session_state.lat,
+                            "lon": st.session_state.lon
+                        },
+                        "current_weather": st.session_state.weather_data,
+                        "forecast": st.session_state.forecast_data,
+                        "air_quality": st.session_state.air_quality_data,
+                        "timestamp": datetime.now().isoformat(),
+                        "unit": st.session_state.unit
+                    }
+                    
+                    json_str = json.dumps(data, indent=2)
+                    st.download_button(
+                        label="📄 Download JSON",
+                        data=json_str,
+                        file_name=f"weather_data_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                        mime="application/json",
+                        use_container_width=True
+                    )
+                else:
+                    st.warning("No weather data to export")
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+            # About Section
+            st.markdown('<div class="weather-card">', unsafe_allow_html=True)
+            st.markdown("### ℹ️ About")
+            st.markdown(f"""
+            **{Config.APP_NAME} v{Config.APP_VERSION}**
+            
+            A professional weather application with advanced features.
+            
+            **Data Source:** OpenWeatherMap API
+            """)
+            st.markdown('</div>', unsafe_allow_html=True)
         
-        st.markdown('</div>', unsafe_allow_html=True)
-        
-        # About Section
-        st.markdown('<div class="weather-card">', unsafe_allow_html=True)
-        st.markdown("### ℹ️ About")
-        st.markdown(f"""
-        **{Config.APP_NAME} v{Config.APP_VERSION}**
-        
-        A professional weather application with advanced features.
-        
-        **Data Source:** OpenWeatherMap API
-        """)
-        st.markdown('</div>', unsafe_allow_html=True)
+        else:
+            # Sidebar بند ہونے پر صرف ایک بٹن دکھائیں
+            if st.button("⚙️ Open Settings", use_container_width=True, type="primary"):
+                st.session_state.sidebar_visibility = "visible"
+                st.rerun()
 
 def main():
     # Display sidebar
     display_sidebar()
+    
+    # اگر sidebar بند ہے تو top-right میں ایک بٹن دکھائیں
+    if st.session_state.sidebar_visibility != "visible":
+        # Top-right میں sidebar کھولنے کا بٹن
+        button_html = f"""
+        <div style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
+            <button onclick="window.location.href='?open_sidebar=true'"
+                style="background-color: {Config.COLORS['primary']}; 
+                       color: white; 
+                       border: none; 
+                       padding: 10px 15px; 
+                       border-radius: 20px; 
+                       cursor: pointer; 
+                       font-size: 14px;
+                       font-weight: 600;">
+                ⚙️ Open Settings
+            </button>
+        </div>
+        """
+        st.markdown(button_html, unsafe_allow_html=True)
     
     # Main content area
     col1, col2 = st.columns([3, 1])
